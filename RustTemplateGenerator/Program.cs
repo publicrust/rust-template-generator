@@ -26,43 +26,57 @@ class Program
             description: "Path to save results",
             getDefaultValue: () => new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory(), "output")));
 
+        var modeOption = new Option<GeneratorMode>(
+            name: "--mode",
+            description: "Generator mode (Full or UpdateOnly)",
+            getDefaultValue: () => GeneratorMode.Full);
+
         var rootCommand = new RootCommand("Rust Template Generator - utility for generating Rust templates from .NET assemblies");
         rootCommand.AddOption(inputOption);
         rootCommand.AddOption(outputOption);
+        rootCommand.AddOption(modeOption);
 
-        rootCommand.SetHandler(async (input, output) =>
+        rootCommand.SetHandler(async (input, output, mode) =>
         {
             try
             {
-                await ProcessFiles(input, output);
+                await ProcessFiles(input, output, mode);
             }
             catch (Exception ex)
             {
                 AnsiConsole.MarkupLine($"[red]Error: {ex.Message}[/]");
                 Environment.Exit(1);
             }
-        }, inputOption, outputOption);
+        }, inputOption, outputOption, modeOption);
 
         return await rootCommand.InvokeAsync(args);
     }
 
-    private static async Task ProcessFiles(DirectoryInfo inputDir, DirectoryInfo outputDir)
+    private static async Task ProcessFiles(DirectoryInfo inputDir, DirectoryInfo outputDir, GeneratorMode mode)
     {
         if (!inputDir.Exists)
         {
             throw new DirectoryNotFoundException($"Folder not found: {inputDir.FullName}");
         }
 
-        // If directory exists and not empty, delete it
-        if (outputDir.Exists && outputDir.GetFileSystemInfos().Length > 0)
+        // For UpdateOnly mode, check if output directory exists
+        if (mode == GeneratorMode.UpdateOnly && !outputDir.Exists)
         {
-            AnsiConsole.MarkupLine("[yellow]Cleaning existing directory...[/]");
-            outputDir.Delete(true);
+            throw new DirectoryNotFoundException($"Target directory not found: {outputDir.FullName}. Use Full mode to create new project.");
         }
 
-        // Clone repository to output directory
-        AnsiConsole.MarkupLine("[blue]Cloning repository...[/]");
-        await CloneRepository(outputDir.FullName);
+        // For Full mode, handle directory cleanup and cloning
+        if (mode == GeneratorMode.Full)
+        {
+            if (outputDir.Exists && outputDir.GetFileSystemInfos().Length > 0)
+            {
+                AnsiConsole.MarkupLine("[yellow]Cleaning existing directory...[/]");
+                outputDir.Delete(true);
+            }
+
+            AnsiConsole.MarkupLine("[blue]Cloning repository...[/]");
+            await CloneRepository(outputDir.FullName);
+        }
 
         AnsiConsole.MarkupLine("[blue]Starting file processing...[/]");
 
@@ -123,6 +137,12 @@ class Program
         // Update files in .rust-analyzer
         var rustAnalyzerDir = Path.Combine(outputDir.FullName, ".rust-analyzer");
         
+        // Create .rust-analyzer directory if it doesn't exist
+        if (!Directory.Exists(rustAnalyzerDir))
+        {
+            Directory.CreateDirectory(rustAnalyzerDir);
+        }
+
         // Save hooks.json with analysis results
         var uniqueHooks = allHooks.Distinct().ToList();
         var hooksJson = JsonSerializer.Serialize(uniqueHooks, new JsonSerializerOptions { WriteIndented = true });
@@ -132,30 +152,34 @@ class Program
         await File.WriteAllTextAsync(Path.Combine(rustAnalyzerDir, "deprecatedHooks.json"), "[]");
         await File.WriteAllTextAsync(Path.Combine(rustAnalyzerDir, "stringPool.json"), "[]");
 
-        // Clean and copy new DLL files
-        var managedDir = Path.Combine(outputDir.FullName, "Managed");
-        if (Directory.Exists(managedDir))
+        // In Full mode, also update Managed folder
+        if (mode == GeneratorMode.Full)
         {
-            Directory.Delete(managedDir, true);
-        }
-        Directory.CreateDirectory(managedDir);
-
-        foreach (var dllFile in dllFiles)
-        {
-            var fileName = Path.GetFileName(dllFile);
-            // Skip Newtonsoft.Json.dll
-            if (fileName.Equals("Newtonsoft.Json.dll", StringComparison.OrdinalIgnoreCase))
+            var managedDir = Path.Combine(outputDir.FullName, "Managed");
+            if (Directory.Exists(managedDir))
             {
-                AnsiConsole.MarkupLine($"[yellow]Skipping file {fileName}[/]");
-                continue;
+                Directory.Delete(managedDir, true);
             }
-            var targetPath = Path.Combine(managedDir, fileName);
-            File.Copy(dllFile, targetPath, overwrite: true);
+            Directory.CreateDirectory(managedDir);
+
+            foreach (var dllFile in dllFiles)
+            {
+                var fileName = Path.GetFileName(dllFile);
+                // Skip Newtonsoft.Json.dll
+                if (fileName.Equals("Newtonsoft.Json.dll", StringComparison.OrdinalIgnoreCase))
+                {
+                    AnsiConsole.MarkupLine($"[yellow]Skipping file {fileName}[/]");
+                    continue;
+                }
+                var targetPath = Path.Combine(managedDir, fileName);
+                File.Copy(dllFile, targetPath, overwrite: true);
+            }
         }
 
         AnsiConsole.MarkupLine($"[green]Processing completed![/]");
         AnsiConsole.MarkupLine($"Results saved in: {outputDir.FullName}");
         AnsiConsole.MarkupLine($"[blue]Hooks found: {uniqueHooks.Count}[/]");
+        AnsiConsole.MarkupLine($"[blue]Mode: {mode}[/]");
         
         // Display file statistics
         var table = new Table()
