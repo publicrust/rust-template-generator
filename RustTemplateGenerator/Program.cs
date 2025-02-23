@@ -59,6 +59,31 @@ class Program
             throw new DirectoryNotFoundException($"Folder not found: {inputDir.FullName}");
         }
 
+        // Проверяем наличие Newtonsoft.Json.dll в Managed папке
+        var newtonsoftPath = Path.Combine(inputDir.FullName, "Newtonsoft.Json.dll");
+        var needToAddNewtonsoft = !File.Exists(newtonsoftPath);
+        
+        // Если библиотеки нет, копируем её из NuGet кеша
+        if (needToAddNewtonsoft)
+        {
+            var nugetCache = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".nuget",
+                "packages",
+                "newtonsoft.json",
+                "13.0.3",
+                "lib",
+                "netstandard2.0",
+                "Newtonsoft.Json.dll"
+            );
+            
+            if (File.Exists(nugetCache))
+            {
+                AnsiConsole.MarkupLine("[yellow]Adding Newtonsoft.Json.dll temporarily...[/]");
+                File.Copy(nugetCache, newtonsoftPath, overwrite: true);
+            }
+        }
+
         // For UpdateOnly mode, check if output directory exists
         if (mode == GeneratorMode.UpdateOnly && !outputDir.Exists)
         {
@@ -174,6 +199,13 @@ class Program
                 var targetPath = Path.Combine(managedDir, fileName);
                 File.Copy(dllFile, targetPath, overwrite: true);
             }
+        }
+
+        // Удаляем временную копию Newtonsoft.Json.dll если мы её добавляли
+        if (needToAddNewtonsoft && File.Exists(newtonsoftPath))
+        {
+            AnsiConsole.MarkupLine("[yellow]Removing temporary Newtonsoft.Json.dll...[/]");
+            File.Delete(newtonsoftPath);
         }
 
         AnsiConsole.MarkupLine($"[green]Processing completed![/]");
