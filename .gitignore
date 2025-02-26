@@ -6,7 +6,6 @@ obj/
 *.suo
 *.userprefs
 .vs/
-.vscode/
 .idea/
 
 ## Build results
