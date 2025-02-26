@@ -14,7 +14,9 @@ namespace Library.Models
         public override string ToString()
         {
             // Формируем строку атрибута с аргументами, если они есть
-            var argsString = Arguments.Any() ? $"(\"{string.Join("\", \"", Arguments)}\")" : string.Empty;
+            var argsString = Arguments.Any()
+                ? $"(\"{string.Join("\", \"", Arguments)}\")"
+                : string.Empty;
             return $"[{Name}{argsString}]";
         }
     }

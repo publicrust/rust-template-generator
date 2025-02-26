@@ -1,10 +1,10 @@
-﻿using Library.Extensions;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Library.Extensions;
 
 namespace Library.Models
 {
@@ -17,13 +17,19 @@ namespace Library.Models
             MethodReturnType = method.MethodReturnType;
             MethodName = method.MethodName;
             Accessibility = method.Accessibility;
-            Parameters = method.Parameters != null ? new List<ParameterModel>(method.Parameters) : new List<ParameterModel>();
+            Parameters =
+                method.Parameters != null
+                    ? new List<ParameterModel>(method.Parameters)
+                    : new List<ParameterModel>();
             IsStatic = method.IsStatic;
             IsVirtual = method.IsVirtual;
             IsOverride = method.IsOverride;
             IsAbstract = method.IsAbstract;
             IsSealed = method.IsSealed;
-            Attributes = method.Attributes != null ? new List<AttributeModel>(method.Attributes) : new List<AttributeModel>();
+            Attributes =
+                method.Attributes != null
+                    ? new List<AttributeModel>(method.Attributes)
+                    : new List<AttributeModel>();
 
             Hooks = hooks;
         }
@@ -31,7 +37,7 @@ namespace Library.Models
         public override string ToString()
         {
             var hook = Hooks.FirstOrDefault();
-            if(hook == null)
+            if (hook == null)
             {
                 return base.ToString();
             }
@@ -43,13 +49,14 @@ namespace Library.Models
             var sealedModifier = IsSealed ? "sealed " : string.Empty;
 
             // Формируем строку с параметрами
-            var parametersString = Parameters.Any()
-                ? string.Join(", ", Parameters)
-                : string.Empty;
+            var parametersString = Parameters.Any() ? string.Join(", ", Parameters) : string.Empty;
 
             // Формируем строку для атрибутов
             var attributesString = Attributes.Any()
-                ? string.Join(System.Environment.NewLine, Attributes.Select(attr => attr.ToString())) + System.Environment.NewLine
+                ? string.Join(
+                    System.Environment.NewLine,
+                    Attributes.Select(attr => attr.ToString())
+                ) + System.Environment.NewLine
                 : string.Empty;
 
             return @$"

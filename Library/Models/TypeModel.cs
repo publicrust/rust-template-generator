@@ -1,5 +1,5 @@
-﻿using Library.Extensions;
-using System.Text;
+﻿using System.Text;
+using Library.Extensions;
 
 namespace Library.Models
 {
@@ -26,14 +26,21 @@ namespace Library.Models
             var sb = new StringBuilder();
 
             // Формируем строку для атрибутов
-            var attributesString = Attributes.Any() ? string.Join(Environment.NewLine, Attributes.Select(attr => attr.ToString())) + Environment.NewLine : string.Empty;
+            var attributesString = Attributes.Any()
+                ? string.Join(Environment.NewLine, Attributes.Select(attr => attr.ToString()))
+                    + Environment.NewLine
+                : string.Empty;
 
-            var typeModifier = IsInterface ? "interface " :
-                               IsEnum ? "enum " :
-                               IsStatic ? "static class " :
-                               IsAbstract ? "abstract class " : "class ";
+            var typeModifier =
+                IsInterface ? "interface "
+                : IsEnum ? "enum "
+                : IsStatic ? "static class "
+                : IsAbstract ? "abstract class "
+                : "class ";
 
-            sb.AppendLine($"{attributesString}{Accessibility.ToAccessibilityString()} {typeModifier}{ClassName}{(string.IsNullOrEmpty(InheritsFrom) ? "" : " : " + InheritsFrom)} {{");
+            sb.AppendLine(
+                $"{attributesString}{Accessibility.ToAccessibilityString()} {typeModifier}{ClassName}{(string.IsNullOrEmpty(InheritsFrom) ? "" : " : " + InheritsFrom)} {{"
+            );
 
             foreach (var field in Fields)
             {

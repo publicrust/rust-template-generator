@@ -1,4 +1,13 @@
-﻿using ICSharpCode.Decompiler;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
+using System.Text.RegularExpressions;
+using ICSharpCode.Decompiler;
 using ICSharpCode.Decompiler.CSharp;
 using ICSharpCode.Decompiler.TypeSystem;
 using Library.Extensions;
@@ -8,15 +17,6 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization.Metadata;
-using System.Text.RegularExpressions;
 
 namespace Library
 {
@@ -24,7 +24,10 @@ namespace Library
     {
         public static string ConvertToJSON(string path)
         {
-            return JsonSerializer.Serialize(ConvertToModel(path), new JsonSerializerOptions { WriteIndented = true });
+            return JsonSerializer.Serialize(
+                ConvertToModel(path),
+                new JsonSerializerOptions { WriteIndented = true }
+            );
         }
 
         public static AssemblyModel ConvertToModel(string path)
@@ -38,39 +41,39 @@ namespace Library
                 resolver.AddSearchDirectory(directory);
             }
 
-            var readerParameters = new ReaderParameters
-            {
-                AssemblyResolver = resolver
-            };
+            var readerParameters = new ReaderParameters { AssemblyResolver = resolver };
 
             using var assemblyDefinition = AssemblyDefinition.ReadAssembly(path, readerParameters);
-            
-            if(assemblyDefinition == null)
+
+            if (assemblyDefinition == null)
             {
                 return null;
             }
 
             var assemblyModel = new AssemblyModel();
 
-            foreach (var type in assemblyDefinition.MainModule.Types.Where(s => !s.FullName.Contains("<>") && !s.FullName.Contains("<Module>")))
+            foreach (
+                var type in assemblyDefinition.MainModule.Types.Where(s =>
+                    !s.FullName.Contains("<>") && !s.FullName.Contains("<Module>")
+                )
+            )
             {
                 var typeModel = new TypeModel
                 {
                     ClassName = type.FullName,
-                    InheritsFrom = type.BaseType != null ? type.BaseType.GetFriendlyTypeName() : null,
+                    InheritsFrom =
+                        type.BaseType != null ? type.BaseType.GetFriendlyTypeName() : null,
                     Accessibility = type.GetAccessibility(),
                     IsAbstract = type.IsAbstract && !type.IsInterface && !type.IsEnum,
-                    IsStatic = type.IsAbstract && type.IsSealed && !type.IsInterface && !type.IsEnum,
+                    IsStatic =
+                        type.IsAbstract && type.IsSealed && !type.IsInterface && !type.IsEnum,
                     IsInterface = type.IsInterface,
-                    IsEnum = type.IsEnum
+                    IsEnum = type.IsEnum,
                 };
 
                 foreach (var attribute in type.CustomAttributes.OrderBy(s => s.AttributeType.Name))
                 {
-                    var attributeModel = new AttributeModel
-                    {
-                        Name = attribute.AttributeType.Name
-                    };
+                    var attributeModel = new AttributeModel { Name = attribute.AttributeType.Name };
 
                     try
                     {
@@ -82,10 +85,7 @@ namespace Library
                             }
                         }
                     }
-                    catch
-                    {
-
-                    }
+                    catch { }
 
                     typeModel.Attributes.Add(attributeModel);
                 }
@@ -97,14 +97,16 @@ namespace Library
                         FieldType = field.FieldType.GetFriendlyTypeName(),
                         FieldName = field.Name,
                         IsStatic = field.IsStatic,
-                        Accessibility = field.GetAccessibility()
+                        Accessibility = field.GetAccessibility(),
                     };
 
-                    foreach (var attribute in field.CustomAttributes.OrderBy(s => s.AttributeType.Name))
+                    foreach (
+                        var attribute in field.CustomAttributes.OrderBy(s => s.AttributeType.Name)
+                    )
                     {
                         var attributeModel = new AttributeModel
                         {
-                            Name = attribute.AttributeType.Name
+                            Name = attribute.AttributeType.Name,
                         };
 
                         try
@@ -117,10 +119,7 @@ namespace Library
                                 }
                             }
                         }
-                        catch
-                        {
-
-                        }
+                        catch { }
 
                         fieldModel.Attributes.Add(attributeModel);
                     }
@@ -133,20 +132,25 @@ namespace Library
                     var propertyModel = new PropertyModel
                     {
                         PropertyType = property.PropertyType.GetFriendlyTypeName(),
-                        PropertyName = property.Name
+                        PropertyName = property.Name,
                     };
 
-                    var (getAccessibility, setAccessibility, isStatic) = property.GetAccessibility();
+                    var (getAccessibility, setAccessibility, isStatic) =
+                        property.GetAccessibility();
 
                     propertyModel.GetAccessibility = getAccessibility;
                     propertyModel.SetAccessibility = setAccessibility;
                     propertyModel.IsStatic = isStatic;
 
-                    foreach (var attribute in property.CustomAttributes.OrderBy(s => s.AttributeType.Name))
+                    foreach (
+                        var attribute in property.CustomAttributes.OrderBy(s =>
+                            s.AttributeType.Name
+                        )
+                    )
                     {
                         var attributeModel = new AttributeModel
                         {
-                            Name = attribute.AttributeType.Name
+                            Name = attribute.AttributeType.Name,
                         };
 
                         try
@@ -159,10 +163,7 @@ namespace Library
                                 }
                             }
                         }
-                        catch (Exception ex)
-                        {
-                        }
-                      
+                        catch (Exception ex) { }
 
                         propertyModel.Attributes.Add(attributeModel);
                     }
@@ -180,28 +181,34 @@ namespace Library
                         {
                             ConstructorName = type.Name,
                             IsStatic = method.IsStatic,
-                            Accessibility = method.GetAccessibility()
+                            Accessibility = method.GetAccessibility(),
                         };
 
                         foreach (var parameter in method.Parameters)
                         {
-                            constructorModel.Parameters.Add(new ParameterModel
-                            {
-                                ParameterType = parameter.ParameterType.GetFriendlyTypeName(),
-                                ParameterName = parameter.Name
-                            });
+                            constructorModel.Parameters.Add(
+                                new ParameterModel
+                                {
+                                    ParameterType = parameter.ParameterType.GetFriendlyTypeName(),
+                                    ParameterName = parameter.Name,
+                                }
+                            );
                         }
 
                         if (!constructorModel.Parameters.Any() && !method.IsStatic)
                         {
-                            continue; 
+                            continue;
                         }
 
-                        foreach (var attribute in method.CustomAttributes.OrderBy(s => s.AttributeType.Name))
+                        foreach (
+                            var attribute in method.CustomAttributes.OrderBy(s =>
+                                s.AttributeType.Name
+                            )
+                        )
                         {
                             var attributeModel = new AttributeModel
                             {
-                                Name = attribute.AttributeType.Name
+                                Name = attribute.AttributeType.Name,
                             };
 
                             try
@@ -210,15 +217,14 @@ namespace Library
                                 {
                                     foreach (var argument in attribute.ConstructorArguments)
                                     {
-                                        attributeModel.Arguments.Add(argument.Value?.ToString() ?? "");
+                                        attributeModel.Arguments.Add(
+                                            argument.Value?.ToString() ?? ""
+                                        );
                                     }
                                 }
                             }
-                            catch
-                            {
+                            catch { }
 
-                            }
-                            
                             constructorModel.Attributes.Add(attributeModel);
                         }
 
@@ -235,23 +241,29 @@ namespace Library
                             IsOverride = method.HasOverrides,
                             IsAbstract = method.IsAbstract,
                             IsSealed = method.IsFinal,
-                            Accessibility = method.GetAccessibility()
+                            Accessibility = method.GetAccessibility(),
                         };
 
                         foreach (var parameter in method.Parameters)
                         {
-                            methodModel.Parameters.Add(new ParameterModel
-                            {
-                                ParameterType = parameter.ParameterType.GetFriendlyTypeName(),
-                                ParameterName = parameter.Name
-                            });
+                            methodModel.Parameters.Add(
+                                new ParameterModel
+                                {
+                                    ParameterType = parameter.ParameterType.GetFriendlyTypeName(),
+                                    ParameterName = parameter.Name,
+                                }
+                            );
                         }
 
-                        foreach (var attribute in method.CustomAttributes.OrderBy(s => s.AttributeType.Name))
+                        foreach (
+                            var attribute in method.CustomAttributes.OrderBy(s =>
+                                s.AttributeType.Name
+                            )
+                        )
                         {
                             var attributeModel = new AttributeModel
                             {
-                                Name = attribute.AttributeType.Name
+                                Name = attribute.AttributeType.Name,
                             };
 
                             try
@@ -260,14 +272,13 @@ namespace Library
                                 {
                                     foreach (var argument in attribute.ConstructorArguments)
                                     {
-                                        attributeModel.Arguments.Add(argument.Value?.ToString() ?? "");
+                                        attributeModel.Arguments.Add(
+                                            argument.Value?.ToString() ?? ""
+                                        );
                                     }
                                 }
                             }
-                            catch
-                            {
-
-                            }
+                            catch { }
 
                             methodModel.Attributes.Add(attributeModel);
                         }
@@ -290,19 +301,26 @@ namespace Library
                         var method = type.Methods[i];
                         var className = type.ClassName.Split('.').Last();
                         var findHooks = hooks
-                            .Where(s => s.Value.MethodName == method.MethodName && s.Value.ClassName == className)
-                            .Where(s => s.Value.MethodParameters.Count == method.Parameters.Count &&
-                                        s.Value.MethodParameters
-                                            .Zip(method.Parameters, (param1, param2) =>
-                                                param1.ParameterType == param2.ParameterType &&
-                                                param1.ParameterName == param2.ParameterName)
-                                            .All(match => match))
+                            .Where(s =>
+                                s.Value.MethodName == method.MethodName
+                                && s.Value.ClassName == className
+                            )
+                            .Where(s =>
+                                s.Value.MethodParameters.Count == method.Parameters.Count
+                                && s.Value.MethodParameters.Zip(
+                                        method.Parameters,
+                                        (param1, param2) =>
+                                            param1.ParameterType == param2.ParameterType
+                                            && param1.ParameterName == param2.ParameterName
+                                    )
+                                    .All(match => match)
+                            )
                             .Select(s => s.Value)
                             .ToList();
 
                         if (findHooks.Count > 0)
                         {
-                            type.Methods[i] = new RustMethodModel(type.Methods[i], findHooks); 
+                            type.Methods[i] = new RustMethodModel(type.Methods[i], findHooks);
                         }
                     }
                 }
@@ -327,7 +345,11 @@ namespace Library
         {
             var sb = new StringBuilder();
 
-            foreach (var type in assemblyModel.Types.OrderBy(s => s.ClassName).Where(s => !s.ClassName.StartsWith("<")))
+            foreach (
+                var type in assemblyModel
+                    .Types.OrderBy(s => s.ClassName)
+                    .Where(s => !s.ClassName.StartsWith("<"))
+            )
             {
                 sb.Append(type.ToString());
             }
@@ -335,17 +357,26 @@ namespace Library
             return sb.ToString();
         }
 
-        private static CSharpCompilation CreateAnalyzer(Microsoft.CodeAnalysis.SyntaxTree source, string compilationName, string managedFolder)
+        private static CSharpCompilation CreateAnalyzer(
+            Microsoft.CodeAnalysis.SyntaxTree source,
+            string compilationName,
+            string managedFolder
+        )
         {
-            var references = Directory.GetFiles(managedFolder)
-                                     .Where(f => !f.Contains("Newtonsoft.Json.dll"))
-                                     .Select(path => MetadataReference.CreateFromFile(path.Replace("\n", "").Replace("\r", "")))
-                                     .ToList();
+            var references = Directory
+                .GetFiles(managedFolder)
+                .Where(f => !f.Contains("Newtonsoft.Json.dll"))
+                .Select(path =>
+                    MetadataReference.CreateFromFile(path.Replace("\n", "").Replace("\r", ""))
+                )
+                .ToList();
 
-            return CSharpCompilation.Create(compilationName,
-                                            syntaxTrees: new[] { source },
-                                            references: references,
-                                            options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            return CSharpCompilation.Create(
+                compilationName,
+                syntaxTrees: new[] { source },
+                references: references,
+                options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+            );
         }
 
         public static Dictionary<string, HookModel> FindHooksDictionary(string assemblyPath)
@@ -357,73 +388,96 @@ namespace Library
 
                 var hooksMethodsTuple = new List<string>();
 
-                Parallel.ForEach(assembly.MainModule.Types, type =>
-                {
-                    foreach (var method in type.Methods)
+                Parallel.ForEach(
+                    assembly.MainModule.Types,
+                    type =>
                     {
-                        if (method.HasBody)
+                        foreach (var method in type.Methods)
                         {
-                            for (int i = 0; i < method.Body.Instructions.Count; i++)
+                            if (method.HasBody)
                             {
-                                var instruction = method.Body.Instructions[i];
-
-                                if (instruction.OpCode == OpCodes.Call || instruction.OpCode == OpCodes.Callvirt)
+                                for (int i = 0; i < method.Body.Instructions.Count; i++)
                                 {
-                                    var methodReference = instruction.Operand as MethodReference;
+                                    var instruction = method.Body.Instructions[i];
 
-                                    if (methodReference != null && IsHookMethod(methodReference))
+                                    if (
+                                        instruction.OpCode == OpCodes.Call
+                                        || instruction.OpCode == OpCodes.Callvirt
+                                    )
                                     {
-                                        string hookName = null;
-                                        var parameters = new List<string>();
+                                        var methodReference =
+                                            instruction.Operand as MethodReference;
 
-                                        // Ищем имя хука в предыдущих инструкциях
-                                        for (int j = i - 1; j >= 0 && j >= i - 10; j--)
+                                        if (
+                                            methodReference != null
+                                            && IsHookMethod(methodReference)
+                                        )
                                         {
-                                            var prevInstruction = method.Body.Instructions[j];
+                                            string hookName = null;
+                                            var parameters = new List<string>();
 
-                                            if (prevInstruction.OpCode == OpCodes.Ldstr)
+                                            // Ищем имя хука в предыдущих инструкциях
+                                            for (int j = i - 1; j >= 0 && j >= i - 10; j--)
                                             {
-                                                hookName = prevInstruction.Operand?.ToString();
-                                                break;
-                                            }
-                                        }
+                                                var prevInstruction = method.Body.Instructions[j];
 
-                                        // Если не нашли через Ldstr, проверяем аргументы метода
-                                        if (string.IsNullOrEmpty(hookName))
-                                        {
-                                            int argCount = methodReference.Parameters.Count;
-                                            for (int j = i - argCount, argIndex = 0; j < i; j++, argIndex++)
-                                            {
-                                                if (j < 0 || j >= method.Body.Instructions.Count)
-                                                    continue;
-
-                                                var argInstruction = method.Body.Instructions[j];
-
-                                                if (argIndex == 0) // Первый аргумент - имя хука
+                                                if (prevInstruction.OpCode == OpCodes.Ldstr)
                                                 {
-                                                    if (argInstruction.Operand != null)
+                                                    hookName = prevInstruction.Operand?.ToString();
+                                                    break;
+                                                }
+                                            }
+
+                                            // Если не нашли через Ldstr, проверяем аргументы метода
+                                            if (string.IsNullOrEmpty(hookName))
+                                            {
+                                                int argCount = methodReference.Parameters.Count;
+                                                for (
+                                                    int j = i - argCount, argIndex = 0;
+                                                    j < i;
+                                                    j++, argIndex++
+                                                )
+                                                {
+                                                    if (
+                                                        j < 0
+                                                        || j >= method.Body.Instructions.Count
+                                                    )
+                                                        continue;
+
+                                                    var argInstruction = method.Body.Instructions[
+                                                        j
+                                                    ];
+
+                                                    if (argIndex == 0) // Первый аргумент - имя хука
                                                     {
-                                                        hookName = argInstruction.Operand.ToString();
+                                                        if (argInstruction.Operand != null)
+                                                        {
+                                                            hookName =
+                                                                argInstruction.Operand.ToString();
+                                                        }
+                                                    }
+                                                    else // Остальные аргументы
+                                                    {
+                                                        var paramType =
+                                                            argInstruction.Operand as TypeReference;
+                                                        parameters.Add(
+                                                            paramType?.Name ?? "unknown"
+                                                        );
                                                     }
                                                 }
-                                                else // Остальные аргументы
-                                                {
-                                                    var paramType = argInstruction.Operand as TypeReference;
-                                                    parameters.Add(paramType?.Name ?? "unknown");
-                                                }
                                             }
+
+                                            if (string.IsNullOrEmpty(hookName))
+                                                continue;
+
+                                            hooksMethodsTuple.Add(type.Name + method.Name);
                                         }
-
-                                        if (string.IsNullOrEmpty(hookName))
-                                            continue;
-
-                                        hooksMethodsTuple.Add(type.Name + method.Name);
                                     }
                                 }
                             }
                         }
                     }
-                });
+                );
 
                 if (hooksMethodsTuple.Count == 0)
                 {
@@ -435,7 +489,11 @@ namespace Library
                 var allTypeDefinitions = decompiler
                     .TypeSystem.GetAllTypeDefinitions()
                     .Where(s => s.Methods.Any())
-                    .Where(s => hooksMethodsTuple.FirstOrDefault(s1 => s.Methods.Select(m => s.Name + m.Name).Contains(s1)) != null)
+                    .Where(s =>
+                        hooksMethodsTuple.FirstOrDefault(s1 =>
+                            s.Methods.Select(m => s.Name + m.Name).Contains(s1)
+                        ) != null
+                    )
                     .ToList();
 
                 foreach (var type in allTypeDefinitions)
@@ -444,7 +502,11 @@ namespace Library
                     {
                         string decompiledCode = decompiler.DecompileTypeAsString(type.FullTypeName);
                         var syntaxTree = CSharpSyntaxTree.ParseText(decompiledCode);
-                        var compilation = CreateAnalyzer(syntaxTree, "DecompiledAssembly", Path.GetDirectoryName(assemblyPath));
+                        var compilation = CreateAnalyzer(
+                            syntaxTree,
+                            "DecompiledAssembly",
+                            Path.GetDirectoryName(assemblyPath)
+                        );
 
                         var semanticModel = compilation.GetSemanticModel(syntaxTree, true);
                         var visitor = new HookFinderVisitor(semanticModel);
@@ -473,7 +535,8 @@ namespace Library
             return new Dictionary<string, HookModel>();
         }
 
-        public static List<string> FindHooks(string assemblyPath) => FindHooksDictionary(assemblyPath).Select(s => s.Key).ToList();
+        public static List<string> FindHooks(string assemblyPath) =>
+            FindHooksDictionary(assemblyPath).Select(s => s.Key).ToList();
 
         private static bool IsHookMethod(MethodReference method)
         {

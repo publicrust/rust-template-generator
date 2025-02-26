@@ -1,6 +1,4 @@
-﻿using ICSharpCode.Decompiler.CSharp;
-using ICSharpCode.Decompiler;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -8,6 +6,8 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using ICSharpCode.Decompiler;
+using ICSharpCode.Decompiler.CSharp;
 
 namespace Library.Pull
 {

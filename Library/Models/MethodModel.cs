@@ -1,6 +1,6 @@
-﻿using Library.Extensions;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using Library.Extensions;
 
 namespace Library.Models
 {
@@ -29,17 +29,19 @@ namespace Library.Models
             var sealedModifier = IsSealed ? "sealed " : string.Empty;
 
             // Формируем строку с параметрами
-            var parametersString = Parameters.Any()
-                ? string.Join(", ", Parameters)
-                : string.Empty;
+            var parametersString = Parameters.Any() ? string.Join(", ", Parameters) : string.Empty;
 
             // Формируем строку для атрибутов
             var attributesString = Attributes.Any()
-                ? string.Join(System.Environment.NewLine, Attributes.Select(attr => attr.ToString())) + System.Environment.NewLine
+                ? string.Join(
+                    System.Environment.NewLine,
+                    Attributes.Select(attr => attr.ToString())
+                ) + System.Environment.NewLine
                 : string.Empty;
 
             // Формируем сигнатуру метода
-            var methodSignature = $"{Accessibility.ToAccessibilityString()} {staticModifier}{abstractModifier}{sealedModifier}{virtualModifier}{overrideModifier}{MethodReturnType} {MethodName}({parametersString})";
+            var methodSignature =
+                $"{Accessibility.ToAccessibilityString()} {staticModifier}{abstractModifier}{sealedModifier}{virtualModifier}{overrideModifier}{MethodReturnType} {MethodName}({parametersString})";
 
             return $"{attributesString}{methodSignature.Trim()};";
         }

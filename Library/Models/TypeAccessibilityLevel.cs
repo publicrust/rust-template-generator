@@ -11,6 +11,6 @@ namespace Library.Models
         Public,
         Internal,
         Private,
-        Unknown
+        Unknown,
     }
 }

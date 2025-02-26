@@ -1,7 +1,7 @@
-﻿using Library.Extensions;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Library.Extensions;
 
 namespace Library.Models
 {
@@ -26,10 +26,15 @@ namespace Library.Models
 
             // Формируем строку для атрибутов
             var attributesString = Attributes.Any()
-                ? string.Join(System.Environment.NewLine, Attributes.Select(attr => attr.ToString())) + System.Environment.NewLine
+                ? string.Join(
+                    System.Environment.NewLine,
+                    Attributes.Select(attr => attr.ToString())
+                ) + System.Environment.NewLine
                 : string.Empty;
 
-            var propertyDeclaration = new StringBuilder($"{attributesString}{GetAccessibility.ToAccessibilityString()} {staticModifier}{PropertyType} {PropertyName} {{");
+            var propertyDeclaration = new StringBuilder(
+                $"{attributesString}{GetAccessibility.ToAccessibilityString()} {staticModifier}{PropertyType} {PropertyName} {{"
+            );
 
             if (CanRead)
             {

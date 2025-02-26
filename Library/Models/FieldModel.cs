@@ -18,7 +18,10 @@ namespace Library.Models
             var readOnlyModifier = IsReadOnly ? "readonly " : string.Empty;
 
             // Формируем строку для атрибутов
-            var attributesString = Attributes.Any() ? string.Join(Environment.NewLine, Attributes.Select(attr => attr.ToString())) + Environment.NewLine : string.Empty;
+            var attributesString = Attributes.Any()
+                ? string.Join(Environment.NewLine, Attributes.Select(attr => attr.ToString()))
+                    + Environment.NewLine
+                : string.Empty;
 
             return $"{attributesString}{Accessibility.ToAccessibilityString()} {staticModifier}{readOnlyModifier}{FieldType} {FieldName};";
         }

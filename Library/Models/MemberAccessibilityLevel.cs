@@ -14,6 +14,6 @@ namespace Library.Models
         Internal,
         ProtectedInternal,
         PrivateProtected,
-        Unknown
+        Unknown,
     }
 }
