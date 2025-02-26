@@ -1,6 +1,6 @@
 using System.CommandLine;
-using System.Text.Json;
 using System.Diagnostics;
+using System.Text.Json;
 using Library;
 using Library.Models;
 using RustTemplateGenerator.Models;
@@ -16,43 +16,58 @@ class Program
     {
         var inputOption = new Option<DirectoryInfo>(
             name: "--input",
-            description: "Path to the Managed folder with DLL files")
+            description: "Path to the Managed folder with DLL files"
+        )
         {
-            IsRequired = true
+            IsRequired = true,
         };
 
         var outputOption = new Option<DirectoryInfo>(
             name: "--output",
             description: "Path to save results",
-            getDefaultValue: () => new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory(), "output")));
+            getDefaultValue: () =>
+                new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory(), "output"))
+        );
 
         var modeOption = new Option<GeneratorMode>(
             name: "--mode",
             description: "Generator mode (Full or UpdateOnly)",
-            getDefaultValue: () => GeneratorMode.Full);
+            getDefaultValue: () => GeneratorMode.Full
+        );
 
-        var rootCommand = new RootCommand("Rust Template Generator - utility for generating Rust templates from .NET assemblies");
+        var rootCommand = new RootCommand(
+            "Rust Template Generator - utility for generating Rust templates from .NET assemblies"
+        );
         rootCommand.AddOption(inputOption);
         rootCommand.AddOption(outputOption);
         rootCommand.AddOption(modeOption);
 
-        rootCommand.SetHandler(async (input, output, mode) =>
-        {
-            try
+        rootCommand.SetHandler(
+            async (input, output, mode) =>
             {
-                await ProcessFiles(input, output, mode);
-            }
-            catch (Exception ex)
-            {
-                AnsiConsole.MarkupLine($"[red]Error: {ex.Message}[/]");
-                Environment.Exit(1);
-            }
-        }, inputOption, outputOption, modeOption);
+                try
+                {
+                    await ProcessFiles(input, output, mode);
+                }
+                catch (Exception ex)
+                {
+                    AnsiConsole.MarkupLine($"[red]Error: {ex.Message}[/]");
+                    Environment.Exit(1);
+                }
+            },
+            inputOption,
+            outputOption,
+            modeOption
+        );
 
         return await rootCommand.InvokeAsync(args);
     }
 
-    private static async Task ProcessFiles(DirectoryInfo inputDir, DirectoryInfo outputDir, GeneratorMode mode)
+    private static async Task ProcessFiles(
+        DirectoryInfo inputDir,
+        DirectoryInfo outputDir,
+        GeneratorMode mode
+    )
     {
         if (!inputDir.Exists)
         {
@@ -62,7 +77,7 @@ class Program
         // Проверяем наличие Newtonsoft.Json.dll в Managed папке
         var newtonsoftPath = Path.Combine(inputDir.FullName, "Newtonsoft.Json.dll");
         var needToAddNewtonsoft = !File.Exists(newtonsoftPath);
-        
+
         // Если библиотеки нет, копируем её из NuGet кеша
         if (needToAddNewtonsoft)
         {
@@ -76,7 +91,7 @@ class Program
                 "netstandard2.0",
                 "Newtonsoft.Json.dll"
             );
-            
+
             if (File.Exists(nugetCache))
             {
                 AnsiConsole.MarkupLine("[yellow]Adding Newtonsoft.Json.dll temporarily...[/]");
@@ -87,7 +102,9 @@ class Program
         // For UpdateOnly mode, check if output directory exists
         if (mode == GeneratorMode.UpdateOnly && !outputDir.Exists)
         {
-            throw new DirectoryNotFoundException($"Target directory not found: {outputDir.FullName}. Use Full mode to create new project.");
+            throw new DirectoryNotFoundException(
+                $"Target directory not found: {outputDir.FullName}. Use Full mode to create new project."
+            );
         }
 
         // For Full mode, handle directory cleanup and cloning
@@ -106,23 +123,30 @@ class Program
         AnsiConsole.MarkupLine("[blue]Starting file processing...[/]");
 
         var allHooks = new List<HookImplementationModel>();
-        var dllFiles = Directory.GetFiles(inputDir.FullName, "*.dll", SearchOption.TopDirectoryOnly);
+        var dllFiles = Directory.GetFiles(
+            inputDir.FullName,
+            "*.dll",
+            SearchOption.TopDirectoryOnly
+        );
 
         if (!dllFiles.Any())
         {
             throw new Exception($"No DLL files found in folder: {inputDir.FullName}");
         }
 
-        var progress = AnsiConsole.Progress()
+        var progress = AnsiConsole
+            .Progress()
             .AutoClear(false)
-            .Columns(new ProgressColumn[]
-            {
-                new TaskDescriptionColumn(),
-                new ProgressBarColumn(),
-                new PercentageColumn(),
-                new RemainingTimeColumn(),
-                new SpinnerColumn()
-            });
+            .Columns(
+                new ProgressColumn[]
+                {
+                    new TaskDescriptionColumn(),
+                    new ProgressBarColumn(),
+                    new PercentageColumn(),
+                    new RemainingTimeColumn(),
+                    new SpinnerColumn(),
+                }
+            );
 
         await progress.StartAsync(ctx =>
         {
@@ -136,21 +160,25 @@ class Program
 
                     if (hooksDictionary.Count > 0)
                     {
-                        var implementationModels = hooksDictionary.Values.Select(hook => new HookImplementationModel
-                        {
-                            HookSignature = hook.HookSignature,
-                            MethodSignature = hook.MethodSignature,
-                            MethodSourceCode = hook.MethodCode,
-                            MethodClassName = hook.ClassName,
-                            HookLineInvoke = hook.LineNumber
-                        });
+                        var implementationModels = hooksDictionary.Values.Select(
+                            hook => new HookImplementationModel
+                            {
+                                HookSignature = hook.HookSignature,
+                                MethodSignature = hook.MethodSignature,
+                                MethodSourceCode = hook.MethodCode,
+                                MethodClassName = hook.ClassName,
+                                HookLineInvoke = hook.LineNumber,
+                            }
+                        );
 
                         allHooks.AddRange(implementationModels);
                     }
                 }
                 catch (Exception ex)
                 {
-                    AnsiConsole.MarkupLine($"[yellow]Warning while processing {Path.GetFileName(dllFile)}: {ex.Message}[/]");
+                    AnsiConsole.MarkupLine(
+                        $"[yellow]Warning while processing {Path.GetFileName(dllFile)}: {ex.Message}[/]"
+                    );
                 }
 
                 task.Increment(1);
@@ -161,7 +189,7 @@ class Program
 
         // Update files in .rust-analyzer
         var rustAnalyzerDir = Path.Combine(outputDir.FullName, ".rust-analyzer");
-        
+
         // Create .rust-analyzer directory if it doesn't exist
         if (!Directory.Exists(rustAnalyzerDir))
         {
@@ -170,7 +198,10 @@ class Program
 
         // Save hooks.json with analysis results
         var uniqueHooks = allHooks.Distinct().ToList();
-        var hooksJson = JsonSerializer.Serialize(uniqueHooks, new JsonSerializerOptions { WriteIndented = true });
+        var hooksJson = JsonSerializer.Serialize(
+            uniqueHooks,
+            new JsonSerializerOptions { WriteIndented = true }
+        );
         await File.WriteAllTextAsync(Path.Combine(rustAnalyzerDir, "hooks.json"), hooksJson);
 
         // Clear other files
@@ -212,13 +243,12 @@ class Program
         AnsiConsole.MarkupLine($"Results saved in: {outputDir.FullName}");
         AnsiConsole.MarkupLine($"[blue]Hooks found: {uniqueHooks.Count}[/]");
         AnsiConsole.MarkupLine($"[blue]Mode: {mode}[/]");
-        
-        // Display file statistics
-        var table = new Table()
-            .AddColumn("File")
-            .AddColumn("Hooks Count");
 
-        var hooksPerFile = allHooks.GroupBy(h => h.MethodClassName)
+        // Display file statistics
+        var table = new Table().AddColumn("File").AddColumn("Hooks Count");
+
+        var hooksPerFile = allHooks
+            .GroupBy(h => h.MethodClassName)
             .Select(g => new { ClassName = g.Key, Count = g.Count() });
 
         foreach (var stat in hooksPerFile)
@@ -238,12 +268,12 @@ class Program
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
-            CreateNoWindow = true
+            CreateNoWindow = true,
         };
 
         var process = new Process { StartInfo = startInfo };
-        
-        try 
+
+        try
         {
             process.Start();
             await process.WaitForExitAsync();
@@ -269,4 +299,4 @@ class Program
             throw new Exception($"Failed to clone repository: {ex.Message}");
         }
     }
-} 
+}

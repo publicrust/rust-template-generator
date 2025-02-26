@@ -18,4 +18,4 @@ public class HookImplementationModel
 
     [JsonPropertyName("HookLineInvoke")]
     public int HookLineInvoke { get; set; }
-} 
+}
