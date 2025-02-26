@@ -97,31 +97,38 @@ namespace Library
                     
                     var isCallHook = methodName == "CallHook" || 
                                    methodName == "DirectCallHook" || 
-                                   methodName == "OnCallHook" || 
-                                   methodName == "Call";
+                                   methodName == "OnCallHook"
+                                   || methodName == "Call";
 
+                   
                     if (isCallHook)
                     {
                         // Проверяем, что первый аргумент - строковая константа
                         var args = invocation.ArgumentList?.Arguments ?? new SeparatedSyntaxList<ArgumentSyntax>();
                         var firstArg = args.FirstOrDefault();
                         
+                       
+                        
                         // Проверяем, является ли первый аргумент строковым литералом
                         if (firstArg?.Expression is not LiteralExpressionSyntax literal || 
                             literal.Kind() != SyntaxKind.StringLiteralExpression)
                         {
+                           
                             return;
                         }
 
                         // Получаем имя хука из строкового литерала
                         string hookName = literal.Token.ValueText;
+                       
 
                         if (string.IsNullOrEmpty(hookName))
                         {
+                           
                             return;
                         }
 
                         var parameters = new List<string>();
+                       
 
                         // Обрабатываем все аргументы кроме первого (имени хука)
                         foreach (var arg in args.Skip(1))
@@ -167,16 +174,22 @@ namespace Library
                         }
 
                         var hash = $"{hookName}({string.Join(", ", parameters)})";
+                       
 
                         if (!Hooks.ContainsKey(hash))
                         {
+                           
                             ProcessHook(invocation, hash, hookName, parameters);
+                        }
+                        else
+                        {
+                           
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error processing invocation: {ex.Message}");
+                   
                 }
 
                 base.VisitInvocationExpression(invocation);
@@ -239,58 +252,147 @@ namespace Library
 
             private void ProcessHook(InvocationExpressionSyntax invocation, string hash, string hookName, List<string> parameters)
             {
-                var method = FindContainingMethod(invocation);
-                if (method != null)
+                var syntaxTree = invocation.SyntaxTree;
+                var root = syntaxTree.GetRoot();
+                
+               
+                
+                // Ищем все родительские узлы до корня
+                var currentNode = invocation.Parent;
+                MethodDeclarationSyntax containingMethod = null;
+                LocalFunctionStatementSyntax localFunction = null;
+                ClassDeclarationSyntax containingClass = null;
+                
+                while (currentNode != null)
                 {
-                    var classDeclaration = method.Ancestors().OfType<ClassDeclarationSyntax>().FirstOrDefault();
-                    var className = classDeclaration?.Identifier.Text ?? "UnknownClass";
+                   
                     
-                    // Получаем позицию начала метода
-                    var methodStartLine = method.GetLocation().GetLineSpan().StartLinePosition.Line;
-                    var hookCallLine = invocation.GetLocation().GetLineSpan().StartLinePosition.Line;
-                    var lineNumber = hookCallLine - methodStartLine + 1; // +1 потому что отсчет с 0
+                    if (currentNode is LocalFunctionStatementSyntax localFunc)
+                    {
+                       
+                        localFunction = localFunc;
+                    }
+                    else if (currentNode is MethodDeclarationSyntax method)
+                    {
+                       
+                        containingMethod = method;
+                    }
+                    else if (currentNode is ClassDeclarationSyntax classDecl)
+                    {
+                       
+                        containingClass = classDecl;
+                        break;
+                    }
+                    
+                    currentNode = currentNode.Parent;
+                }
 
-                    var methodParameters = method.ParameterList.Parameters
+                // Если не нашли класс в родительских узлах, ищем в более широком контексте
+                if (containingClass == null)
+                {
+                   
+                    containingClass = root.DescendantNodes().OfType<ClassDeclarationSyntax>().FirstOrDefault();
+                    if (containingClass != null)
+                    {
+                       
+                    }
+                }
+
+                // Если нашли локальную функцию, используем её как метод
+                var methodToUse = localFunction != null ? (SyntaxNode)localFunction : containingMethod;
+                
+                if (methodToUse != null)
+                {
+                    var className = containingClass?.Identifier.Text ?? "UnknownClass";
+                    var methodName = localFunction != null ? 
+                        $"{containingMethod?.Identifier.Text ?? ""}{(containingMethod != null ? "." : "")}{localFunction.Identifier.Text}" : 
+                        containingMethod?.Identifier.Text;
+
+                   
+                    
+                    // Получаем позицию начала метода/локальной функции
+                    var methodStartLine = methodToUse.GetLocation().GetLineSpan().StartLinePosition.Line;
+                    var hookCallLine = invocation.GetLocation().GetLineSpan().StartLinePosition.Line;
+                    var lineNumber = hookCallLine - methodStartLine + 1;
+
+                    // Получаем параметры из метода или локальной функции
+                    var parameterList = localFunction?.ParameterList ?? containingMethod?.ParameterList;
+                    var methodParameters = parameterList?.Parameters
                         .Select(p => new ParameterModel
                         {
                             ParameterType = p.Type?.GetFriendlyTypeName() ?? "unknown",
                             ParameterName = p.Identifier.Text
                         })
                         .Where(p => p.ParameterType != "unknown")
-                        .ToList();
+                        .ToList() ?? new List<ParameterModel>();
 
-                    Hooks.Add(hash, new HookModel
+                   
+                    
+                    var hookModel = new HookModel
                     {
                         HookName = hookName,
                         HookParameters = $"({string.Join(", ", parameters)})",
                         MethodParameters = methodParameters,
                         ClassName = className,
-                        MethodName = method.Identifier.Text,
-                        MethodCode = method.ToFullString(),
+                        MethodName = methodName ?? "UnknownMethod",
+                        MethodCode = methodToUse.ToFullString(),
                         LineNumber = lineNumber
-                    });
+                    };
+
+                   
+                    Hooks.Add(hash, hookModel);
+                   
+                }
+                else
+                {
+                   
+                    
+                    // Дополнительная отладочная информация
+                   
+                   
+                   
+                   
+                    
+                    // Выводим все родительские узлы
+                    var parent = invocation.Parent;
+                    var level = 0;
+                    while (parent != null)
+                    {
+                       
+                        parent = parent.Parent;
+                    }
                 }
             }
 
             private MethodDeclarationSyntax? FindContainingMethod(InvocationExpressionSyntax invocation)
             {
-                var method = invocation.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
-                if (method == null)
+               
+                
+                // Проверяем, находится ли вызов внутри локальной функции
+                var localFunction = invocation.Ancestors().OfType<LocalFunctionStatementSyntax>().FirstOrDefault();
+                if (localFunction != null)
                 {
-                    var parent = invocation.Parent;
-                    while (parent != null)
+                   
+                    
+                    // Ищем содержащий метод для локальной функции
+                    var containingMethod = localFunction.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+                    if (containingMethod != null)
                     {
-                        method = parent.DescendantNodes()
-                            .OfType<MethodDeclarationSyntax>()
-                            .FirstOrDefault(m => m.DescendantNodes().Contains(invocation));
-                        
-                        if (method != null)
-                            break;
-
-                        parent = parent.Parent;
+                       
+                        return containingMethod;
                     }
                 }
-                return method;
+
+                // Пробуем найти обычный метод через Ancestors
+                var method = invocation.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+                if (method != null)
+                {
+                   
+                    return method;
+                }
+
+               
+                return null;
             }
         }
     }
