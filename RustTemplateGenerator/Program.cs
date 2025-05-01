@@ -204,9 +204,14 @@ class Program
         );
         await File.WriteAllTextAsync(Path.Combine(rustAnalyzerDir, "hooks.json"), hooksJson);
 
-        // Clear other files
-        await File.WriteAllTextAsync(Path.Combine(rustAnalyzerDir, "deprecatedHooks.json"), "[]");
-        await File.WriteAllTextAsync(Path.Combine(rustAnalyzerDir, "stringPool.json"), "[]");
+        if (mode == GeneratorMode.Full)
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(rustAnalyzerDir, "deprecatedHooks.json"),
+                "[]"
+            );
+            await File.WriteAllTextAsync(Path.Combine(rustAnalyzerDir, "stringPool.json"), "[]");
+        }
 
         // In Full mode, also update Managed folder
         if (mode == GeneratorMode.Full)
