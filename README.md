@@ -11,8 +11,10 @@ cd rust-template-generator
 dotnet build
 
 # Generate template
-dotnet run --project RustTemplateGenerator/RustTemplateGenerator.csproj --input /path/to/RustDedicated_Data/Managed --output ./my-plugin
+dotnet run --project RustTemplateGenerator/RustTemplateGenerator.csproj --input /path/to/RustDedicated_Data/Managed --output ./my-plugin --mode Full 
 ```
+
+--mode Full or UpdateOnly
 
 ## Step 2: Generate StringPool
 
